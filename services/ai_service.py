@@ -1,44 +1,76 @@
 """
-שירות AI לייצור דוחות חכמים עם Flan-T5
+שירות AI לייצור דוחות חכמים עם Perplexity API
 """
 import logging
+import requests
+import json
 from typing import Dict, List, Optional
-from transformers import T5ForConditionalGeneration, T5Tokenizer
-import torch
+from decouple import config
 
 logger = logging.getLogger(__name__)
 
 
-class FlanT5ReportGenerator:
+class PerplexityReportGenerator:
     """
-    מחלקה לייצור דוחות בעזרת Flan-T5
+    מחלקה לייצור דוחות בעזרת Perplexity API
     """
     
-    def __init__(self, model_name: str = "google/flan-t5-base"):
+    def __init__(self, api_key: str = None, model: str = "sonar"):
         """
-        אתחול המודל
+        אתחול שירות Perplexity
         
         Args:
-            model_name: שם המודל מ-Hugging Face (flan-t5-base מומלץ לאיזון בין ביצועים לזיכרון)
+            api_key: API key של Perplexity (יילקח מ-.env אם לא סופק)
+            model: שם המודל (ברירת מחדל: sonar)
         """
-        self.model_name = model_name
-        self.tokenizer = None
-        self.model = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._load_model()
+        self.api_key = api_key or config('PERPLEXITY_API_KEY', default='')
+        self.model = model or config('PERPLEXITY_MODEL', default='sonar')
+        self.base_url = "https://api.perplexity.ai/chat/completions"
+        
+        if not self.api_key:
+            logger.warning("Perplexity API key not found. Please set PERPLEXITY_API_KEY in .env file")
     
-    def _load_model(self):
-        """טעינת המודל והטוקנייזר"""
+    def _make_request(self, messages: List[Dict]) -> str:
+        """ביצוע בקשה ל-Perplexity API"""
         try:
-            logger.info(f"Loading Flan-T5 model: {self.model_name}")
-            self.tokenizer = T5Tokenizer.from_pretrained(self.model_name)
-            self.model = T5ForConditionalGeneration.from_pretrained(self.model_name)
-            self.model.to(self.device)
-            self.model.eval()
-            logger.info(f"Model loaded successfully on {self.device}")
-        except Exception as e:
-            logger.error(f"Error loading model: {e}")
-            raise
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.model,
+                "messages": messages
+            }
+            
+            # לוג הבקשה לדיבוג
+            print(f"Sending request to Perplexity:")
+            print(f"Model: {self.model}")
+            print(f"Messages count: {len(messages)}")
+            print(f"API Key configured: {'Yes' if self.api_key else 'No'}")
+            print(f"First message preview: {str(messages[0])[:200]}...")
+            
+            response = requests.post(self.base_url, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result['choices'][0]['message']['content']
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Perplexity API request failed: {e}")
+            # הדפס תגובה מפורטת לדיבוג
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_details = e.response.json()
+                    logger.error(f"API Error Details: {error_details}")
+                    print(f"API Error Details: {error_details}")
+                except:
+                    logger.error(f"API Response Text: {e.response.text}")
+                    print(f"API Response Text: {e.response.text}")
+            raise Exception(f"Perplexity API error: {e}")
+        except KeyError as e:
+            logger.error(f"Unexpected response format: {e}")
+            raise Exception("Invalid response from Perplexity API")
     
     def generate_report(self, business_data: Dict, requirements: List[Dict]) -> str:
         """
@@ -52,24 +84,25 @@ class FlanT5ReportGenerator:
             דוח טקסט מפורט ומותאם
         """
         try:
-            # הכנת prompt מובנה
-            prompt = self._create_prompt(business_data, requirements)
+            if not self.api_key:
+                raise Exception("API key not configured")
             
-            # יצירת הדוח
-            report = self._generate_text(prompt)
+            # הכנת הודעות לAPI
+            messages = self._create_messages(business_data, requirements)
             
-            # עיבוד נוסף של הדוח
-            formatted_report = self._format_report(report, business_data, requirements)
+            # יצירת הדוח עם Perplexity
+            ai_content = self._make_request(messages)
             
-            return formatted_report
+            # החזרת התוכן הגולמי מ-Perplexity ללא עיצוב נוסף
+            return ai_content
             
         except Exception as e:
-            logger.error(f"Error generating report: {e}")
-            return self._fallback_report(business_data, requirements)
+            logger.error(f"Error generating report with Perplexity: {e}")
+            raise Exception(f"Failed to generate AI report: {e}")
     
-    def _create_prompt(self, business_data: Dict, requirements: List[Dict]) -> str:
+    def _create_messages(self, business_data: Dict, requirements: List[Dict]) -> List[Dict]:
         """
-        יצירת prompt מובנה עבור המודל
+        יצירת הודעות לPerplexity API
         """
         business_name = business_data.get('business_name', 'העסק')
         business_type = business_data.get('business_type', 'עסק')
@@ -91,37 +124,84 @@ class FlanT5ReportGenerator:
         
         features_text = ', '.join(features) if features else 'אין מאפיינים מיוחדים'
         
-        # דרישות בעדיפות גבוהה
+        # סיווג דרישות
         high_priority_reqs = [req for req in requirements if req.get('priority') == 'high']
         medium_priority_reqs = [req for req in requirements if req.get('priority') == 'medium']
         
-        prompt = f"""
-Create a comprehensive business licensing report in Hebrew for the following business:
-
-Business Details:
-- Name: {business_name}
-- Type: {business_type}
-- Area: {area} square meters
-- Seating Capacity: {capacity} seats
-- Special Features: {features_text}
-
-High Priority Requirements ({len(high_priority_reqs)} items):
-{self._format_requirements_for_prompt(high_priority_reqs)}
-
-Medium Priority Requirements ({len(medium_priority_reqs)} items):
-{self._format_requirements_for_prompt(medium_priority_reqs)}
-
-Write a professional business licensing report in Hebrew that includes:
-1. Executive summary
-2. Critical requirements analysis
-3. Action plan with priorities
-4. Cost and timeline estimates
-5. Practical recommendations
-
-Use clear, business-friendly Hebrew language. Focus on practical guidance.
-"""
+        # יצירת רשימת דרישות מפורטת
+        requirements_summary = []
+        for i, req in enumerate(requirements[:15], 1):  # 15 הראשונות עם מספור
+            title = req.get('title', '')[:200]  # כותרת מורחבת
+            description = req.get('description', '')[:300]  # תיאור
+            authority = req.get('authority', '')
+            area_req = req.get('area_requirements', '')
+            capacity_req = req.get('capacity_requirements', '')
+            special_req = req.get('special_requirements', '')
+            priority = req.get('priority', '')
+            cost = req.get('cost_estimate', '')
+            time = req.get('processing_time', '')
+            
+            if title:
+                req_text = f"{i}. {title}"
+                if description and description != title:
+                    req_text += f"\n   תיאור: {description}"
+                if authority:
+                    req_text += f"\n   רשות: {authority}"
+                if area_req:
+                    req_text += f"\n   דרישות שטח: {area_req}"
+                if capacity_req:
+                    req_text += f"\n   דרישות תפוסה: {capacity_req}"
+                if special_req:
+                    req_text += f"\n   דרישות מיוחדות: {special_req}"
+                if priority:
+                    req_text += f"\n   עדיפות: {priority}"
+                if cost:
+                    req_text += f"\n   עלות: {cost}"
+                if time:
+                    req_text += f"\n   זמן: {time}"
+                requirements_summary.append(req_text)
         
-        return prompt
+        requirements_text = '\n\n'.join(requirements_summary) if requirements_summary else "אין דרישות ספציפיות"
+        
+        user_message = f"""אני צריך עזרה ביצירת דוח רישוי עסקים לעסק בישראל:
+
+פרטי העסק:
+- שם: {business_name}
+- סוג: {business_type}
+- שטח: {area} מ"ר
+- תפוסה: {capacity} מקומות ישיבה
+- מאפיינים: {features_text}
+
+דרישות שנמצאו ({len(requirements)} סה"כ):
+{requirements_text}
+
+אנא צור דוח מקצועי בעברית שמבוסס בדיוק על הדרישות שפורטו לעיל.
+
+חשוב: 
+- השתמש רק בדרישות המפורטות למעלה ולא במידע כללי
+- שים לב במיוחד לדרישות שטח ותפוסה אם מצוינות
+- בדוק אם העסק עונה על הגבלות שנקבעו בדרישות
+- אם יש סתירה בין גודל העסק לדרישות - ציין זאת בבירור
+
+הדוח צריך לכלול:
+1. תמצית מנהלים - כולל בדיקה אם העסק עונה על הדרישות הבסיסיות
+2. דרישות עיקריות - רק אלה שמופיעות ברשימה
+3. הערכות עלויות וזמנים - על בסיס הדרישות הקיימות
+4. תוכנית פעולה מעשית
+5. המלצות והתראות אם יש בעיות
+
+הדוח צריך להיות מקצועי, מדויק ומבוסס על הנתונים בלבד."""
+
+        return [
+            {
+                "role": "system",
+                "content": "אתה יועץ רישוי עסקים מומחה בישראל. אתה מנתח רק את הדרישות הספציפיות שנתונות לך ולא מוסיף מידע כללי מבחוץ. אם יש סתירה בין פרטי העסק לדרישות המפורטות - אתה מציין זאת בבירור. התשובות שלך תמיד בעברית, מדויקות ומבוססות רק על הנתונים שסופקו."
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
     
     def _format_requirements_for_prompt(self, requirements: List[Dict]) -> str:
         """עיצוב דרישות עבור ה-prompt"""
@@ -139,113 +219,8 @@ Use clear, business-friendly Hebrew language. Focus on practical guidance.
         
         return '\n'.join(formatted)
     
-    def _generate_text(self, prompt: str) -> str:
-        """יצירת טקסט עם המודל"""
-        try:
-            # הכנת הקלט
-            inputs = self.tokenizer.encode(prompt, return_tensors="pt", max_length=512, truncation=True)
-            inputs = inputs.to(self.device)
-            
-            # יצירת הטקסט
-            with torch.no_grad():
-                outputs = self.model.generate(
-                    inputs,
-                    max_length=800,
-                    min_length=200,
-                    temperature=0.7,
-                    do_sample=True,
-                    top_p=0.9,
-                    no_repeat_ngram_size=3,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-            
-            # פענוח התוצאה
-            generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
-            return generated_text
-            
-        except Exception as e:
-            logger.error(f"Error in text generation: {e}")
-            raise
     
-    def _format_report(self, ai_content: str, business_data: Dict, requirements: List[Dict]) -> str:
-        """עיצוב סופי של הדוח"""
-        business_name = business_data.get('business_name', 'העסק')
-        
-        # מבנה הדוח הסופי
-        report = f"""
-# דוח הערכת רישוי עסקים - {business_name}
-
-## תמצית מנהלים
-
-{ai_content}
-
-## פירוט דרישות לפי עדיפות
-
-### דרישות בעדיפות גבוהה
-{self._format_requirements_section([r for r in requirements if r.get('priority') == 'high'])}
-
-### דרישות בעדיפות בינונית  
-{self._format_requirements_section([r for r in requirements if r.get('priority') == 'medium'])}
-
-### דרישות בעדיפות נמוכה
-{self._format_requirements_section([r for r in requirements if r.get('priority') == 'low'])}
-
-## המלצות סופיות
-
-בהתבסס על ניתוח הנתונים, מומלץ להתחיל בטיפול בדרישות בעדיפות גבוהה ולהמשיך בהתאם לעדיפויות.
-יש להתייעץ עם יועץ מקצועי ולפנות לרשויות הרלוונטיות לקבלת מידע עדכני.
-
----
-*דוח זה נוצר באמצעות AI ומבוסס על הנתונים שסופקו. יש להתייעץ עם יועץ מקצועי לאימות המידע.*
-"""
-        
-        return report.strip()
     
-    def _format_requirements_section(self, requirements: List[Dict]) -> str:
-        """עיצוב קטע דרישות"""
-        if not requirements:
-            return "אין דרישות בקטגוריה זו."
-        
-        formatted = []
-        for i, req in enumerate(requirements, 1):
-            title = req.get('title', 'ללא כותרת')
-            authority = req.get('authority', 'לא צוין')
-            cost = req.get('estimated_cost', 'לא צוין')
-            time = req.get('processing_time', 'לא צוין')
-            
-            formatted.append(f"""
-{i}. **{title[:100]}**
-   - רשות מוסמכת: {authority}
-   - עלות משוערת: {cost}
-   - זמן טיפול: {time}
-""")
-        
-        return '\n'.join(formatted)
-    
-    def _fallback_report(self, business_data: Dict, requirements: List[Dict]) -> str:
-        """דוח גיבוי במקרה של שגיאה ב-AI"""
-        business_name = business_data.get('business_name', 'העסק')
-        
-        return f"""
-# דוח הערכת רישוי עסקים - {business_name}
-
-## תמצית
-
-בוצעה הערכת רישוי עבור {business_name}.
-נמצאו {len(requirements)} דרישות רלוונטיות לעסק.
-
-## דרישות עיקריות
-
-{self._format_requirements_section(requirements[:10])}
-
-## המלצות
-
-מומלץ לטפל בדרישות לפי סדר עדיפות ולהתייעץ עם יועץ מקצועי.
-
----
-*דוח זה נוצר במצב חירום ללא שימוש ב-AI. לדוח מפורט יותר, נסו שוב מאוחר יותר.*
-"""
 
 
 # יחידה גלובלית של הגנרטור
@@ -255,7 +230,7 @@ def get_ai_generator():
     """קבלת מופע יחיד של הגנרטור"""
     global _generator_instance
     if _generator_instance is None:
-        _generator_instance = FlanT5ReportGenerator()
+        _generator_instance = PerplexityReportGenerator()
     return _generator_instance
 
 def generate_ai_report(business_assessment, requirements_list) -> str:
@@ -302,19 +277,5 @@ def generate_ai_report(business_assessment, requirements_list) -> str:
         
     except Exception as e:
         logger.error(f"Error in AI report generation: {e}")
-        # החזרת דוח גיבוי
-        return f"""
-# דוח הערכת רישוי עסקים - {business_assessment.business_name}
-
-## שגיאה ביצירת דוח AI
-
-אירעה שגיאה ביצירת הדוח החכם: {str(e)}
-
-## סיכום בסיסי
-
-נמצאו {len(requirements_list)} דרישות רלוונטיות לעסק שלכם.
-אנא פנו ליועץ מקצועי לקבלת עזרה בתהליך הרישוי.
-
----
-*דוח זה נוצר במצב חירום ללא AI*
-"""
+        # אין דוח גיבוי - רק Perplexity
+        raise Exception(f"Failed to generate AI report: {e}")

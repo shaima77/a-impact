@@ -100,54 +100,13 @@ def submit_assessment(request):
         # מציאת דרישות רלוונטיות
         relevant_requirements = find_relevant_requirements(assessment)
         
-        # יצירת דוח עם AI
-        try:
-            logger.info(f"Generating AI report for {assessment.business_name}")
-            print(f"Starting AI report generation for: {assessment.business_name}")
-            
-            # נסה לייבא את השירות AI
-            try:
-                from services.ai_service import generate_ai_report
-                ai_content = generate_ai_report(assessment, relevant_requirements)
-                logger.info("AI report generated successfully")
-                print("AI report generated successfully!")
-            except ImportError as import_error:
-                print(f"AI service import failed: {import_error}")
-                raise Exception("AI service not available")
-                
-        except Exception as e:
-            logger.error(f"Failed to generate AI report: {e}")
-            print(f"AI report generation failed: {e}")
-            ai_content = f"""
-# דוח הערכת רישוי עסקים - {assessment.business_name}
-
-## תמצית מנהלים
-
-עסק: {assessment.business_name}
-סוג: {assessment.business_type.name}
-שטח: {assessment.area_sqm} מ"ר
-תפוסה: {assessment.seating_capacity} מקומות
-
-## דרישות שנמצאו
-
-נמצאו {len(relevant_requirements)} דרישות רלוונטיות לעסק שלכם:
-
-### דרישות בעדיפות גבוהה
-- רישיון עסק מקומי מהעירייה
-- אישור כיבוי אש מרשות הכבאות  
-- רישיון בריאות ממשרד הבריאות
-
-### המלצות לפעולה
-
-1. התחילו בדרישות בעדיפות גבוהה
-2. פנו לרשויות הרלוונטיות לקבלת מידע מעודכן
-3. התייעצו עם יועץ מקצועי בתחום הרישוי
-
-## הערה חשובה
-
-הדוח מבוסס על הנתונים שסופקו ועדכני לתאריך יצירתו. 
-מומלץ לוודא עם הרשויות את הדרישות העדכניות.
-"""
+        # יצירת דוח עם Perplexity AI
+        print(f"Creating AI report for: {assessment.business_name}")
+        
+        # יצירת דוח עם Perplexity AI בלבד
+        from services.ai_service import generate_ai_report
+        ai_content = generate_ai_report(assessment, relevant_requirements)
+        print("AI report generated successfully with Perplexity!")
         
         report = AssessmentReport.objects.create(
             assessment=assessment,
@@ -323,3 +282,4 @@ def api_get_requirements(request):
             }, status=400)
     
     return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+

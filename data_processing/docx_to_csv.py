@@ -1,200 +1,188 @@
 """
-סקריפט להמרת קובץ Word עם נתוני רישוי עסקים לפורמט CSV
-משתמש ב-Polars לעיבוד יעיל של הנתונים
+סקריפט להמרת קובץ Word של דרישות רישוי ל-CSV
 """
 
 import os
-import re
-from docx import Document
+import sys
 import polars as pl
-from typing import List, Dict, Any
+from docx import Document
+import re
 
-
-def read_docx_file(file_path: str) -> str:
-    """
-    קריאת קובץ Word והחזרת התוכן כטקסט
-    """
+def extract_requirements_from_docx(docx_path):
+    """חילוץ דרישות מקובץ Word"""
+    
     try:
-        doc = Document(file_path)
-        full_text = []
+        doc = Document(docx_path)
+        requirements = []
+        current_requirement = {}
         
-        # קריאת כל הפסקאות
+        print(f"Processing document: {docx_path}")
+        
         for paragraph in doc.paragraphs:
-            if paragraph.text.strip():
-                full_text.append(paragraph.text.strip())
+            text = paragraph.text.strip()
+            
+            if not text:
+                continue
+                
+            # זיהוי כותרת דרישה חדשה
+            if text and len(text) > 10:
+                # אם יש לנו דרישה קודמת, שמור אותה
+                if current_requirement.get('title'):
+                    requirements.append(current_requirement.copy())
+                    current_requirement = {}
+                
+                # התחל דרישה חדשה
+                current_requirement = {
+                    'title': text[:200],  # מגביל אורך כותרת
+                    'description': text,
+                    'authority': extract_authority(text),
+                    'category': extract_category(text),
+                    'priority': determine_priority(text),
+                    'estimated_cost': '',
+                    'processing_time': ''
+                }
         
-        # קריאת טבלאות אם יש
-        for table in doc.tables:
-            for row in table.rows:
-                row_text = []
-                for cell in row.cells:
-                    if cell.text.strip():
-                        row_text.append(cell.text.strip())
-                if row_text:
-                    full_text.append(" | ".join(row_text))
+        # הוסף את הדרישה האחרונה
+        if current_requirement.get('title'):
+            requirements.append(current_requirement)
+            
+        print(f"Extracted {len(requirements)} requirements")
+        return requirements
         
-        return "\n".join(full_text)
-    
     except Exception as e:
-        print(f"שגיאה בקריאת הקובץ: {e}")
-        return ""
+        print(f"Error processing DOCX: {e}")
+        return []
 
-
-def extract_licensing_requirements(text: str) -> List[Dict[str, Any]]:
-    """
-    חילוץ דרישות רישוי מהטקסט
-    מחזיר רשימה של דיקטים עם הדרישות
-    """
-    requirements = []
-    lines = text.split('\n')
+def extract_authority(text):
+    """חילוץ רשות מוסמכת מהטקסט"""
     
-    current_requirement = {}
+    authorities = [
+        'משרד הבריאות',
+        'העירייה המקומית',
+        'רשות הכבאות',
+        'המשטרה',
+        'משרד הפנים',
+        'משרד התחבורה',
+        'רשות המסים',
+        'ביטוח לאומי',
+        'משרד הכלכלה',
+        'משרד העבודה',
+        'רשות הרדיו',
+        'חברת הגז',
+        'רשות החשמל'
+    ]
     
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    text_lower = text.lower()
+    
+    for authority in authorities:
+        if authority.lower() in text_lower:
+            return authority
             
-        # זיהוי כותרות או דרישות חדשות
-        if any(keyword in line for keyword in ['רישוי', 'היתר', 'דרישה', 'חובה', 'צריך']):
-            # שמירת הדרישה הקודמת אם קיימת
-            if current_requirement:
-                requirements.append(current_requirement.copy())
-                current_requirement = {}
+    # חיפוש דפוסים נוספים
+    if 'עירייה' in text_lower or 'רשות מקומית' in text_lower:
+        return 'העירייה המקומית'
+    elif 'בריאות' in text_lower:
+        return 'משרד הבריאות'
+    elif 'כבאות' in text_lower or 'אש' in text_lower:
+        return 'רשות הכבאות'
+    elif 'משטרה' in text_lower:
+        return 'המשטרה'
+    elif 'גז' in text_lower:
+        return 'חברת הגז/יועץ מוסמך'
+    
+    return 'לא צוין'
+
+def extract_category(text):
+    """זיהוי קטגוריית הדרישה"""
+    
+    text_lower = text.lower()
+    
+    if any(word in text_lower for word in ['רישיון עסק', 'פתיחת עסק', 'עסק']):
+        return 'רישיון עסק'
+    elif any(word in text_lower for word in ['בריאות', 'תברואה', 'מזון']):
+        return 'בריאות ותברואה'
+    elif any(word in text_lower for word in ['אש', 'כבאות', 'בטיחות אש']):
+        return 'בטיחות אש'
+    elif any(word in text_lower for word in ['גז', 'בטיחות גז']):
+        return 'בטיחות גז'
+    elif any(word in text_lower for word in ['אלכוהול', 'משקאות חריפים']):
+        return 'רישיון אלכוהול'
+    elif any(word in text_lower for word in ['בנייה', 'תכנון']):
+        return 'תכנון ובנייה'
+    elif any(word in text_lower for word in ['מס', 'מסים', 'ארנונה']):
+        return 'מיסוי'
+    elif any(word in text_lower for word in ['עובדים', 'עבודה']):
+        return 'העסקת עובדים'
+    
+    return 'כללי'
+
+def determine_priority(text):
+    """קביעת עדיפות הדרישה"""
+    
+    text_lower = text.lower()
+    
+    # עדיפות גבוהה
+    high_priority_keywords = [
+        'רישיון עסק', 'חובה', 'אסור', 'אישור כיבוי אש',
+        'רישיון בריאות', 'בטיחות גז', 'משקאות חריפים'
+    ]
+    
+    # עדיפות בינונית
+    medium_priority_keywords = [
+        'מומלץ', 'רצוי', 'יש לשקול', 'בהתאם לצורך'
+    ]
+    
+    for keyword in high_priority_keywords:
+        if keyword in text_lower:
+            return 'high'
             
-            current_requirement['title'] = line
-            current_requirement['description'] = line
-            current_requirement['authority'] = ''
-            current_requirement['area_requirements'] = ''
-            current_requirement['capacity_requirements'] = ''
-            current_requirement['special_requirements'] = ''
-            current_requirement['priority'] = 'medium'
-            current_requirement['cost_estimate'] = ''
-            current_requirement['processing_time'] = ''
-        
-        # חיפוש מספרים שיכולים להצביע על שטח או תפוסה
-        area_match = re.search(r'(\d+)\s*(מ"ר|מטר|שטח)', line)
-        if area_match and current_requirement:
-            current_requirement['area_requirements'] = area_match.group(0)
-        
-        capacity_match = re.search(r'(\d+)\s*(מקומות|אנשים|לקוחות)', line)
-        if capacity_match and current_requirement:
-            current_requirement['capacity_requirements'] = capacity_match.group(0)
-        
-        # זיהוי רשויות
-        if any(authority in line for authority in ['עירייה', 'משטרה', 'כבאות', 'משרד', 'רשות']):
-            if current_requirement:
-                current_requirement['authority'] = line
-        
-        # זיהוי מאפיינים מיוחדים
-        if any(feature in line for feature in ['גז', 'בשר', 'משלוחים', 'אלכוהול', 'חוץ']):
-            if current_requirement:
-                current_requirement['special_requirements'] += line + '; '
-        
-        # זיהוי עלויות
-        cost_match = re.search(r'(\d+)\s*(שקל|ש"ח|nis)', line)
-        if cost_match and current_requirement:
-            current_requirement['cost_estimate'] = cost_match.group(0)
-        
-        # זיהוי זמני טיפול
-        time_match = re.search(r'(\d+)\s*(יום|שבוע|חודש|שנה)', line)
-        if time_match and current_requirement:
-            current_requirement['processing_time'] = time_match.group(0)
+    for keyword in medium_priority_keywords:
+        if keyword in text_lower:
+            return 'medium'
     
-    # הוספת הדרישה האחרונה
-    if current_requirement:
-        requirements.append(current_requirement)
-    
-    return requirements
+    return 'low'
 
-
-def create_polars_dataframe(requirements: List[Dict[str, Any]]) -> pl.DataFrame:
-    """
-    יצירת DataFrame של Polars מהדרישות
-    """
-    if not requirements:
-        print("לא נמצאו דרישות לעיבוד")
-        return pl.DataFrame()
+def save_to_csv(requirements, output_path):
+    """שמירה ל-CSV"""
     
-    # יצירת DataFrame
-    df = pl.DataFrame(requirements)
-    
-    # ניקוי ועיבוד נתונים
-    df = df.with_columns([
-        # ניקוי טקסטים
-        pl.col("title").str.strip_chars(),
-        pl.col("description").str.strip_chars(),
-        pl.col("authority").str.strip_chars(),
-        pl.col("special_requirements").str.strip_chars().str.replace_all("; $", ""),
-        
-        # הוספת ID ייחודי
-        pl.int_range(pl.len()).alias("requirement_id")
-    ])
-    
-    return df
-
-
-def save_to_csv(df: pl.DataFrame, output_path: str):
-    """
-    שמירת DataFrame ל-CSV
-    """
     try:
-        df.write_csv(output_path, separator=',')
-        print(f"הקובץ נשמר בהצלחה: {output_path}")
-        
-        # הדפסת סטטיסטיקות
-        print(f"נמצאו {len(df)} דרישות רישוי")
-        print(f"עמודות: {', '.join(df.columns)}")
+        df = pl.DataFrame(requirements)
+        df.write_csv(output_path)
+        print(f"Saved {len(requirements)} requirements to {output_path}")
+        return True
         
     except Exception as e:
-        print(f"שגיאה בשמירת הקובץ: {e}")
-
+        print(f"Error saving CSV: {e}")
+        return False
 
 def main():
-    """
-    הפונקציה הראשית - המרת הקובץ מ-DOCX ל-CSV
-    """
+    """פונקציה ראשית"""
+    
     # נתיבי קבצים
-    docx_file = r"C:\Users\ah147\Desktop\A-impact\18-07-2022_4.2A.docx"
-    csv_output = r"C:\Users\ah147\Desktop\A-impact\a-impact\data_processing\licensing_requirements.csv"
+    docx_path = "../18-07-2022_4.2A.docx"  # הקובץ המקורי
+    csv_path = "licensing_requirements.csv"
     
-    print("מתחיל המרת קובץ דרישות הרישוי...")
-    
-    # בדיקת קיום הקובץ
-    if not os.path.exists(docx_file):
-        print(f"שגיאה: הקובץ לא נמצא: {docx_file}")
+    # בדוק אם הקובץ קיים
+    if not os.path.exists(docx_path):
+        print(f"File not found: {docx_path}")
+        print("Please ensure the Word document is in the correct location")
         return
     
-    # קריאת הקובץ
-    print("קורא את קובץ ה-Word...")
-    text_content = read_docx_file(docx_file)
+    print("Starting DOCX to CSV conversion...")
     
-    if not text_content:
-        print("שגיאה: לא ניתן לקרוא את תוכן הקובץ")
-        return
-    
-    print(f"נקראו {len(text_content)} תווים מהקובץ")
-    
-    # חילוץ דרישות
-    print("מחלץ דרישות רישוי...")
-    requirements = extract_licensing_requirements(text_content)
+    # חלץ דרישות
+    requirements = extract_requirements_from_docx(docx_path)
     
     if not requirements:
-        print("לא נמצאו דרישות בקובץ")
+        print("No requirements extracted. Please check the input file.")
         return
     
-    # יצירת DataFrame
-    print("יוצר DataFrame עם Polars...")
-    df = create_polars_dataframe(requirements)
-    
-    # שמירה ל-CSV
-    print("שומר ל-CSV...")
-    save_to_csv(df, csv_output)
-    
-    # הצגת דוגמה מהנתונים
-    print("\nדוגמה מהנתונים:")
-    print(df.head())
-
+    # שמור ל-CSV
+    if save_to_csv(requirements, csv_path):
+        print("Conversion completed successfully!")
+        print(f"Output file: {csv_path}")
+    else:
+        print("Failed to save CSV file")
 
 if __name__ == "__main__":
     main()

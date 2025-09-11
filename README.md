@@ -44,7 +44,18 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**הערה**: התקנת PyTorch ו-Transformers עשויה לקחת מספר דקות בהתאם למהירות האינטרנט.
+### שלב 2.5: הגדרת Perplexity API
+1. **השג API Key**:
+   - גש ל-https://www.perplexity.ai/
+   - צור חשבון והשג API key
+   - המודל המומלץ: `llama-3.1-sonar-small-128k-online`
+
+2. **צור קובץ .env**:
+```bash
+# ביצירת קובץ .env בתיקיית הפרויקט
+echo "PERPLEXITY_API_KEY=your-api-key-here" > .env
+echo "DEBUG=True" >> .env
+```
 
 ### שלב 3: הכנת מסד הנתונים
 ```bash
@@ -110,9 +121,8 @@ a-impact/
 - **SQLite** - מסד נתונים (ניתן לשדרג ל-PostgreSQL)
 
 ### AI & ML
-- **Flan-T5 (Google)** - מודל שפה ליצירת דוחות
-- **Hugging Face Transformers** - ספריית ML
-- **PyTorch** - Framework למודלי ML
+- **Perplexity API** - מודל שפה מתקדם ליצירת דוחות
+- **Llama 3.1 Sonar** - מודל מתקדם עם גישה לאינטרנט בזמן אמת
 
 ### Frontend
 - **Bootstrap 5** - עיצוב responsive

@@ -1,201 +1,174 @@
 """
-ניתוח ועיבוד מתקדם של נתוני הרישוי עם Polars
-הכנת הנתונים למערכת Django
+ניתוח וסיכום נתוני דרישות הרישוי
 """
 
 import polars as pl
-import re
-from typing import List, Dict, Any
+import json
+from collections import Counter
 
-
-def load_and_analyze_csv() -> pl.DataFrame:
-    """
-    טעינת וניתוח הנתונים מה-CSV
-    """
-    csv_path = "data_processing/licensing_requirements.csv"
+def analyze_requirements(csv_path="licensing_requirements.csv"):
+    """ניתוח נתוני הדרישות"""
     
     try:
+        # קריאת הנתונים
         df = pl.read_csv(csv_path)
-        print(f"נטענו {len(df)} רשומות מהקובץ")
+        print(f"Loaded {len(df)} requirements from {csv_path}")
+        
+        # ניתוח בסיסי
+        print("\n=== בסיסי ===")
+        print(f"סה\"כ דרישות: {len(df)}")
+        
+        # ניתוח לפי רשויות
+        print("\n=== לפי רשויות ===")
+        authority_counts = df['authority'].value_counts()
+        for row in authority_counts.iter_rows():
+            authority, count = row
+            print(f"{authority}: {count}")
+        
+        # ניתוח לפי קטגוריות
+        print("\n=== לפי קטגוריות ===")
+        category_counts = df['category'].value_counts()
+        for row in category_counts.iter_rows():
+            category, count = row
+            print(f"{category}: {count}")
+        
+        # ניתוח לפי עדיפות
+        print("\n=== לפי עדיפות ===")
+        priority_counts = df['priority'].value_counts()
+        for row in priority_counts.iter_rows():
+            priority, count = row
+            priority_name = {
+                'high': 'גבוהה',
+                'medium': 'בינונית', 
+                'low': 'נמוכה'
+            }.get(priority, priority)
+            print(f"{priority_name}: {count}")
+        
+        # חיפוש דרישות ספציפיות לסוגי עסקים
+        print("\n=== דרישות לפי סוגי עסקים ===")
+        business_keywords = {
+            'מסעדה': ['מסעדה', 'מזון', 'אוכל', 'בישול'],
+            'בר': ['בר', 'אלכוהול', 'משקאות חריפים', 'שתייה'],
+            'בית קפה': ['קפה', 'משקאות', 'חלב', 'מאפים']
+        }
+        
+        for business_type, keywords in business_keywords.items():
+            relevant_reqs = []
+            for keyword in keywords:
+                # חיפוש במילות המפתח בעמודות title ו-description
+                title_matches = df.filter(pl.col("title").str.contains(f"(?i){keyword}"))
+                desc_matches = df.filter(pl.col("description").str.contains(f"(?i){keyword}"))
+                
+                # איחוד התוצאות
+                matches = pl.concat([title_matches, desc_matches]).unique()
+                relevant_reqs.extend(range(len(matches)))
+            
+            unique_reqs = list(set(relevant_reqs))
+            print(f"{business_type}: {len(unique_reqs)} דרישות רלוונטיות")
+        
         return df
+        
     except Exception as e:
-        print(f"שגיאה בטעינת הקובץ: {e}")
-        return pl.DataFrame()
+        print(f"Error analyzing data: {e}")
+        return None
 
+def create_business_type_mapping(df):
+    """יצירת מיפוי דרישות לסוגי עסקים"""
+    
+    mapping = {
+        'מסעדה': [],
+        'בר': [],  
+        'בית קפה': [],
+        'מזון מהיר': []
+    }
+    
+    # כללים למיפוי
+    rules = {
+        'מסעדה': [
+            'מזון', 'אוכל', 'בישול', 'מטבח', 'בריאות', 'תברואה',
+            'כיבוי אש', 'רישיון עסק', 'גז'
+        ],
+        'בר': [
+            'אלכוהול', 'משקאות חריפים', 'בר', 'שתייה', 'לילה',
+            'כיבוי אש', 'רישיון עסק', 'משטרה'
+        ],
+        'בית קפה': [
+            'קפה', 'משקאות', 'חלב', 'מאפה', 'פשוט', 'קל',
+            'כיבוי אש', 'רישיון עסק'
+        ],
+        'מזון מהיר': [
+            'מהיר', 'טייק אווי', 'משלוח', 'פשוט', 'בסיסי',
+            'מזון', 'כיבוי אש', 'רישיון עסק'
+        ]
+    }
+    
+    for business_type, keywords in rules.items():
+        for i, row in enumerate(df.iter_rows(named=True)):
+            title = str(row['title']).lower()
+            description = str(row['description']).lower()
+            
+            # חיפוש מילות מפתח
+            for keyword in keywords:
+                if keyword in title or keyword in description:
+                    if i not in mapping[business_type]:
+                        mapping[business_type].append(i)
+                    break
+    
+    # הוספת דרישות בסיסיות לכל סוג עסק
+    basic_requirements = []
+    for i, row in enumerate(df.iter_rows(named=True)):
+        title = str(row['title']).lower()
+        if any(word in title for word in ['רישיון עסק', 'כיבוי אש', 'בטיחות']):
+            basic_requirements.append(i)
+    
+    # הוסף דרישות בסיסיות לכל סוג עסק
+    for business_type in mapping:
+        for req_id in basic_requirements:
+            if req_id not in mapping[business_type]:
+                mapping[business_type].append(req_id)
+    
+    return mapping
 
-def clean_and_categorize_data(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    ניקוי וקטלוג הנתונים
-    """
-    # ניקוי בסיסי
-    df = df.with_columns([
-        # הסרת מרכאות מיותרות וניקוי רווחים
-        pl.col("title").str.replace_all(r'^"|"$', '').str.strip_chars(),
-        pl.col("description").str.replace_all(r'^"|"$', '').str.strip_chars(),
-        pl.col("authority").str.strip_chars(),
-        
-        # זיהוי קטגוריות
-        pl.when(
-            pl.col("title").str.to_lowercase().str.contains("מסעד|אוכל|מטבח|הגש")
-        ).then(pl.lit("restaurant"))
-        .when(
-            pl.col("title").str.to_lowercase().str.contains("בר|משקאות|אלכוהול")
-        ).then(pl.lit("bar"))
-        .when(
-            pl.col("title").str.to_lowercase().str.contains("בריאות|סניטרי|רפוא")
-        ).then(pl.lit("health"))
-        .when(
-            pl.col("title").str.to_lowercase().str.contains("כבאות|בטיחות|אש")
-        ).then(pl.lit("safety"))
-        .when(
-            pl.col("title").str.to_lowercase().str.contains("עירייה|רשות|עיר")
-        ).then(pl.lit("municipal"))
-        .otherwise(pl.lit("general"))
-        .alias("category"),
-        
-        # זיהוי דרגת חשיבות
-        pl.when(
-            pl.col("title").str.to_lowercase().str.contains("חובה|חוק|נדרש|בטיחות")
-        ).then(pl.lit("high"))
-        .when(
-            pl.col("title").str.to_lowercase().str.contains("מומלץ|עדיף|רצוי")
-        ).then(pl.lit("medium"))
-        .otherwise(pl.lit("low"))
-        .alias("importance"),
-        
-        # חילוץ מספרי שטח וקיבולת באופן מתקדם יותר
-        pl.col("title").str.extract_all(r"(\d+)\s*מ\"ר").list.join(",").alias("area_extracted"),
-        pl.col("title").str.extract_all(r"(\d+)\s*(?:מקומות|אנשים|לקוחות)").list.join(",").alias("capacity_extracted"),
-    ])
+def save_analysis_results(df, mapping, output_file="analysis_results.json"):
+    """שמירת תוצאות הניתוח"""
     
-    return df
-
-
-def create_restaurant_specific_data(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    יצירת נתונים ספציפיים למסעדות
-    """
-    # סינון רק פריטים רלוונטיים למסעדות
-    restaurant_df = df.filter(
-        (pl.col("category") == "restaurant") |
-        (pl.col("category") == "health") |
-        (pl.col("category") == "safety") |
-        (pl.col("title").str.to_lowercase().str.contains("מסעד|אוכל|מטבח|הגש|בר|משקאות"))
-    )
+    results = {
+        'total_requirements': len(df),
+        'business_type_mapping': mapping,
+        'statistics': {
+            'by_authority': dict(df['authority'].value_counts().iter_rows()),
+            'by_category': dict(df['category'].value_counts().iter_rows()),
+            'by_priority': dict(df['priority'].value_counts().iter_rows())
+        }
+    }
     
-    # הוספת מאפיינים ספציפיים למסעדות
-    restaurant_df = restaurant_df.with_columns([
-        # זיהוי אם נדרש גז
-        pl.col("description").str.to_lowercase().str.contains("גז").alias("requires_gas"),
-        
-        # זיהוי אם מתייחס להגשת בשר
-        pl.col("description").str.to_lowercase().str.contains("בשר|כשר|טרף").alias("meat_related"),
-        
-        # זיהוי אם מתייחס למשלוחים
-        pl.col("description").str.to_lowercase().str.contains("משלוח|הבא|חלוק").alias("delivery_related"),
-        
-        # זיהוי אם מתייחס לישיבה בחוץ
-        pl.col("description").str.to_lowercase().str.contains("חוץ|מרפסת|גן|רחוב").alias("outdoor_related"),
-        
-        # זיהוי אם מתייחס לאלכוהול
-        pl.col("description").str.to_lowercase().str.contains("אלכוהול|משקאות|יין|בירה").alias("alcohol_related"),
-    ])
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
     
-    return restaurant_df
-
-
-def export_for_django(df: pl.DataFrame):
-    """
-    יצוא הנתונים בפורמט המתאים ל-Django
-    """
-    # יצירת קובץ JSON למסעדות
-    restaurant_data = df.select([
-        "requirement_id",
-        "title", 
-        "description",
-        "authority",
-        "category",
-        "importance",
-        "requires_gas",
-        "meat_related", 
-        "delivery_related",
-        "outdoor_related",
-        "alcohol_related",
-        "area_extracted",
-        "capacity_extracted"
-    ]).to_dicts()
-    
-    # שמירה בפורמט JSON
-    import json
-    with open("data_processing/restaurant_requirements.json", "w", encoding="utf-8") as f:
-        json.dump(restaurant_data, f, ensure_ascii=False, indent=2)
-    
-    print(f"נשמרו {len(restaurant_data)} דרישות למסעדות ב-JSON")
-    
-    # יצירת CSV נקי למסעדות
-    df.write_csv("data_processing/restaurant_requirements_clean.csv")
-    print("נשמר גם CSV נקי")
-
-
-def analyze_statistics(df: pl.DataFrame):
-    """
-    ניתוח סטטיסטיקות של הנתונים
-    """
-    print("\n=== ניתוח הנתונים ===")
-    
-    # סטטיסטיקות כלליות
-    print(f"סך הכל דרישות: {len(df)}")
-    
-    # חלוקה לפי קטגוריות
-    category_stats = df.group_by("category").agg(pl.len().alias("count")).sort("count", descending=True)
-    print("\nחלוקה לפי קטגוריות:")
-    print(category_stats)
-    
-    # חלוקה לפי חשיבות
-    importance_stats = df.group_by("importance").agg(pl.len().alias("count")).sort("count", descending=True)
-    print("\nחלוקה לפי חשיבות:")
-    print(importance_stats)
-    
-    # מאפיינים מיוחדים
-    special_features = df.select([
-        pl.col("requires_gas").sum().alias("requires_gas"),
-        pl.col("meat_related").sum().alias("meat_related"),
-        pl.col("delivery_related").sum().alias("delivery_related"),
-        pl.col("outdoor_related").sum().alias("outdoor_related"),
-        pl.col("alcohol_related").sum().alias("alcohol_related"),
-    ])
-    print("\nמאפיינים מיוחדים:")
-    print(special_features)
-
+    print(f"Analysis results saved to {output_file}")
 
 def main():
-    """
-    הפונקציה הראשית
-    """
-    print("מתחיל ניתוח נתוני הרישוי עם Polars...")
+    """פונקציה ראשית"""
     
-    # טעינת הנתונים
-    df = load_and_analyze_csv()
-    if df.is_empty():
-        return
+    print("Starting requirements analysis...")
     
-    # ניקוי והכנת הנתונים
-    print("מנקה ומקטלג את הנתונים...")
-    df_clean = clean_and_categorize_data(df)
+    # ניתוח הנתונים
+    df = analyze_requirements()
     
-    # יצירת נתונים ספציפיים למסעדות
-    print("יוצר נתונים ספציפיים למסעדות...")
-    restaurant_df = create_restaurant_specific_data(df_clean)
-    
-    # ניתוח סטטיסטיקות
-    analyze_statistics(restaurant_df)
-    
-    # יצוא למערכת Django
-    print("\nמייצא נתונים למערכת Django...")
-    export_for_django(restaurant_df)
-    
-    print("\nהניתוח הושלם בהצלחה! ✅")
-
+    if df is not None:
+        # יצירת מיפוי
+        mapping = create_business_type_mapping(df)
+        
+        print(f"\n=== מיפוי לסוגי עסקים ===")
+        for business_type, req_ids in mapping.items():
+            print(f"{business_type}: {len(req_ids)} דרישות")
+        
+        # שמירת תוצאות
+        save_analysis_results(df, mapping)
+        
+        print("\nAnalysis completed successfully!")
+    else:
+        print("Analysis failed!")
 
 if __name__ == "__main__":
     main()
