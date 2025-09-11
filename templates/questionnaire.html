@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}שאלון הערכת עסק - מערכת הערכת רישוי עסקים{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-step {
+        display: none;
+    }
+    .form-step.active {
+        display: block;
+    }
+    .step-indicator {
+        background: #e9ecef;
+        border-radius: 50px;
+        height: 8px;
+        position: relative;
+        margin: 20px 0;
+    }
+    .step-progress {
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        height: 100%;
+        border-radius: 50px;
+        transition: width 0.3s ease;
+    }
+    .question-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+    }
+    .btn-option {
+        border: 2px solid #dee2e6;
+        background: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        text-align: right;
+    }
+    .btn-option:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+    }
+    .btn-option.selected {
+        border-color: #007bff;
+        background: #e3f2fd;
+        color: #0056b3;
+    }
+    .feature-option {
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 5px 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .feature-option:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+    }
+    .feature-option.selected {
+        border-color: #28a745;
+        background: #d4edda;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 text-primary">
+                <i class="fas fa-clipboard-check"></i>
+                שאלון הערכת עסק
+            </h1>
+            <p class="lead text-muted">ענו על השאלות הבאות כדי לקבל דוח מותאם אישית</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="step-indicator">
+            <div class="step-progress" id="progressBar" style="width: 20%"></div>
+        </div>
+        
+        <div class="text-center mb-4">
+            <span class="badge bg-primary fs-6" id="stepCounter">שלב 1 מתוך 5</span>
+        </div>
+
+        <!-- Form -->
+        <form id="questionnaireForm" method="post" action="{% url 'questionnaire:submit_assessment' %}">
+            {% csrf_token %}
+            
+            <!-- Step 1: Business Basic Info -->
+            <div class="form-step active" id="step1">
+                <div class="card question-card">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">
+                            <i class="fas fa-store text-primary"></i>
+                            פרטים בסיסיים על העסק
+                        </h3>
+                        
+                        <div class="mb-4">
+                            <label for="businessName" class="form-label fs-5">שם העסק</label>
+                            <input type="text" class="form-control form-control-lg" id="businessName" 
+                                   name="business_name" required placeholder="הזינו את שם העסק">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fs-5">סוג העסק</label>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <div class="btn-option" data-value="מסעדה">
+                                        <i class="fas fa-utensils text-primary"></i>
+                                        <strong>מסעדה</strong>
+                                        <p class="mb-0 text-muted small">מסעדה או בית קפה עם הגשת אוכל</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <div class="btn-option" data-value="בר">
+                                        <i class="fas fa-glass-martini text-warning"></i>
+                                        <strong>בר/פאב</strong>
+                                        <p class="mb-0 text-muted small">בר או פאב עם הגשת משקאות</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <div class="btn-option" data-value="בית קפה">
+                                        <i class="fas fa-coffee text-info"></i>
+                                        <strong>בית קפה</strong>
+                                        <p class="mb-0 text-muted small">בית קפה עם חטיפים קלים</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <div class="btn-option" data-value="מזון מהיר">
+                                        <i class="fas fa-hamburger text-danger"></i>
+                                        <strong>מזון מהיר</strong>
+                                        <p class="mb-0 text-muted small">מקום מזון מהיר או טייק אווי</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="business_type" id="businessType" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Area and Capacity -->
+            <div class="form-step" id="step2">
+                <div class="card question-card">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">
+                            <i class="fas fa-ruler-combined text-success"></i>
+                            מידות ותפוסה
+                        </h3>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <label for="areaSize" class="form-label fs-5">שטח העסק (במ"ר)</label>
+                                <input type="number" class="form-control form-control-lg" id="areaSize" 
+                                       name="area_sqm" required min="1" max="10000" placeholder="למשל: 120">
+                                <div class="form-text">הזינו את השטח הכולל של העסק בריבוע</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-4">
+                                <label for="seatingCapacity" class="form-label fs-5">מספר מקומות ישיבה</label>
+                                <input type="number" class="form-control form-control-lg" id="seatingCapacity" 
+                                       name="seating_capacity" required min="1" max="1000" placeholder="למשל: 50">
+                                <div class="form-text">כמה לקוחות יכולים לשבת בו זמנית</div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>טיפ:</strong> ספרו גם מקומות בר ומקומות ישיבה בחוץ אם יש
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Special Features -->
+            <div class="form-step" id="step3">
+                <div class="card question-card">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">
+                            <i class="fas fa-cogs text-info"></i>
+                            מאפיינים מיוחדים
+                        </h3>
+                        
+                        <p class="text-muted text-center mb-4">בחרו את כל המאפיינים הרלוונטיים לעסק שלכם</p>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="feature-option" data-feature="uses_gas">
+                                    <i class="fas fa-fire text-danger"></i>
+                                    <strong>שימוש בגז</strong>
+                                    <p class="mb-0 text-muted small">מטבח עם כיריים או תנור גז</p>
+                                </div>
+                                
+                                <div class="feature-option" data-feature="serves_meat">
+                                    <i class="fas fa-drumstick-bite text-warning"></i>
+                                    <strong>הגשת בשר</strong>
+                                    <p class="mb-0 text-muted small">מנות בשר או עוף</p>
+                                </div>
+                                
+                                <div class="feature-option" data-feature="offers_delivery">
+                                    <i class="fas fa-motorcycle text-primary"></i>
+                                    <strong>שירות משלוחים</strong>
+                                    <p class="mb-0 text-muted small">משלוחים למקום הלקוח</p>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="feature-option" data-feature="has_outdoor_seating">
+                                    <i class="fas fa-tree text-success"></i>
+                                    <strong>ישיבה בחוץ</strong>
+                                    <p class="mb-0 text-muted small">מרפסת או גן</p>
+                                </div>
+                                
+                                <div class="feature-option" data-feature="serves_alcohol">
+                                    <i class="fas fa-wine-glass text-purple"></i>
+                                    <strong>הגשת אלכוהול</strong>
+                                    <p class="mb-0 text-muted small">יין, בירה או משקאות חריפים</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden inputs for features -->
+                        <input type="hidden" name="uses_gas" id="uses_gas" value="false">
+                        <input type="hidden" name="serves_meat" id="serves_meat" value="false">
+                        <input type="hidden" name="offers_delivery" id="offers_delivery" value="false">
+                        <input type="hidden" name="has_outdoor_seating" id="has_outdoor_seating" value="false">
+                        <input type="hidden" name="serves_alcohol" id="serves_alcohol" value="false">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Review -->
+            <div class="form-step" id="step4">
+                <div class="card question-card">
+                    <div class="card-body p-5">
+                        <h3 class="card-title text-center mb-4">
+                            <i class="fas fa-check-circle text-success"></i>
+                            סיכום ואישור
+                        </h3>
+                        
+                        <div id="reviewContent">
+                            <!-- Content will be populated by JavaScript -->
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>שימו לב:</strong> אנא וודאו שכל הפרטים נכונים לפני השליחה
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary btn-lg" id="prevBtn" onclick="changeStep(-1)" style="display: none;">
+                    <i class="fas fa-arrow-right"></i>
+                    הקודם
+                </button>
+                
+                <button type="button" class="btn btn-primary btn-lg" id="nextBtn" onclick="changeStep(1)">
+                    הבא
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                
+                <button type="submit" class="btn btn-success btn-lg" id="submitBtn" style="display: none;">
+                    <i class="fas fa-paper-plane"></i>
+                    שלח שאלון
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/questionnaire.js' %}"></script>
+{% endblock %}

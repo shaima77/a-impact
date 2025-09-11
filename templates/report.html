@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+
+{% block title %}דוח הערכת רישוי - {{ assessment.business_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-5">
+            <h1 class="display-5 text-success">
+                <i class="fas fa-check-circle"></i>
+                דוח הערכת רישוי
+            </h1>
+            <p class="lead text-muted">עבור {{ assessment.business_name }}</p>
+        </div>
+
+        <!-- Business Summary -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-store"></i>
+                    פרטי העסק
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>פרטים בסיסיים</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>שם העסק:</strong> {{ assessment.business_name }}</li>
+                            <li><strong>סוג העסק:</strong> {{ assessment.business_type.name }}</li>
+                            <li><strong>שטח:</strong> {{ assessment.area_sqm }} מ"ר</li>
+                            <li><strong>מקומות ישיבה:</strong> {{ assessment.seating_capacity }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>מאפיינים מיוחדים</h6>
+                        <div class="feature-badges">
+                            {% if assessment.uses_gas %}
+                                <span class="badge bg-danger me-2 mb-2">
+                                    <i class="fas fa-fire"></i> שימוש בגז
+                                </span>
+                            {% endif %}
+                            {% if assessment.serves_meat %}
+                                <span class="badge bg-warning me-2 mb-2">
+                                    <i class="fas fa-drumstick-bite"></i> הגשת בשר
+                                </span>
+                            {% endif %}
+                            {% if assessment.offers_delivery %}
+                                <span class="badge bg-primary me-2 mb-2">
+                                    <i class="fas fa-motorcycle"></i> משלוחים
+                                </span>
+                            {% endif %}
+                            {% if assessment.has_outdoor_seating %}
+                                <span class="badge bg-success me-2 mb-2">
+                                    <i class="fas fa-tree"></i> ישיבה בחוץ
+                                </span>
+                            {% endif %}
+                            {% if assessment.serves_alcohol %}
+                                <span class="badge bg-info me-2 mb-2">
+                                    <i class="fas fa-wine-glass"></i> הגשת אלכוהול
+                                </span>
+                            {% endif %}
+                            {% if not assessment.uses_gas and not assessment.serves_meat and not assessment.offers_delivery and not assessment.has_outdoor_seating and not assessment.serves_alcohol %}
+                                <span class="text-muted">אין מאפיינים מיוחדים</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Generated Report -->
+        {% if report.ai_generated_content %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-robot"></i>
+                    דוח חכם שנוצר על ידי AI
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="ai-content">
+                    {{ report.ai_generated_content|linebreaks }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Summary Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h2 class="text-primary">{{ total_requirements }}</h2>
+                        <p class="text-muted">דרישות רלוונטיות</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h2 class="text-danger">{{ requirements_by_priority.high.count }}</h2>
+                        <p class="text-muted">דרישות בעדיפות גבוהה</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h2 class="text-info">{{ requirements_by_category|length }}</h2>
+                        <p class="text-muted">קטגוריות שונות</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requirements by Priority -->
+        <div class="accordion mb-4" id="priorityAccordion">
+            <!-- High Priority -->
+            {% if requirements_by_priority.high %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="highPriorityHeading">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#highPriorityCollapse" aria-expanded="true">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                        <strong>דרישות בעדיפות גבוהה ({{ requirements_by_priority.high.count }})</strong>
+                    </button>
+                </h2>
+                <div id="highPriorityCollapse" class="accordion-collapse collapse show" 
+                     data-bs-parent="#priorityAccordion">
+                    <div class="accordion-body">
+                        {% for requirement in requirements_by_priority.high %}
+                            <div class="card mb-3 border-danger">
+                                <div class="card-body">
+                                    <h6 class="card-title text-danger">
+                                        <i class="fas fa-star"></i>
+                                        {{ requirement.title|truncatechars:80 }}
+                                    </h6>
+                                    <p class="card-text text-muted small">{{ requirement.description|truncatechars:200 }}</p>
+                                    {% if requirement.authority %}
+                                        <p class="card-text">
+                                            <strong>רשות מוסמכת:</strong> {{ requirement.authority }}
+                                        </p>
+                                    {% endif %}
+                                    <div class="row">
+                                        {% if requirement.estimated_cost %}
+                                            <div class="col-md-6">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-shekel-sign"></i>
+                                                    עלות משוערת: {{ requirement.estimated_cost }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                        {% if requirement.processing_time %}
+                                            <div class="col-md-6">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock"></i>
+                                                    זמן טיפול: {{ requirement.processing_time }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Medium Priority -->
+            {% if requirements_by_priority.medium %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="mediumPriorityHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#mediumPriorityCollapse">
+                        <i class="fas fa-minus-circle text-warning me-2"></i>
+                        <strong>דרישות בעדיפות בינונית ({{ requirements_by_priority.medium.count }})</strong>
+                    </button>
+                </h2>
+                <div id="mediumPriorityCollapse" class="accordion-collapse collapse" 
+                     data-bs-parent="#priorityAccordion">
+                    <div class="accordion-body">
+                        {% for requirement in requirements_by_priority.medium %}
+                            <div class="card mb-3 border-warning">
+                                <div class="card-body">
+                                    <h6 class="card-title text-warning">
+                                        {{ requirement.title|truncatechars:80 }}
+                                    </h6>
+                                    <p class="card-text text-muted small">{{ requirement.description|truncatechars:200 }}</p>
+                                    {% if requirement.authority %}
+                                        <p class="card-text">
+                                            <strong>רשות מוסמכת:</strong> {{ requirement.authority }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Low Priority -->
+            {% if requirements_by_priority.low %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="lowPriorityHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#lowPriorityCollapse">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        <strong>דרישות בעדיפות נמוכה ({{ requirements_by_priority.low.count }})</strong>
+                    </button>
+                </h2>
+                <div id="lowPriorityCollapse" class="accordion-collapse collapse" 
+                     data-bs-parent="#priorityAccordion">
+                    <div class="accordion-body">
+                        {% for requirement in requirements_by_priority.low %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ requirement.title|truncatechars:80 }}</h6>
+                                    <p class="card-text text-muted small">{{ requirement.description|truncatechars:200 }}</p>
+                                    {% if requirement.authority %}
+                                        <p class="card-text">
+                                            <strong>רשות מוסמכת:</strong> {{ requirement.authority }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-center mb-4">
+            <a href="{% url 'questionnaire:questionnaire' %}" class="btn btn-outline-primary me-3">
+                <i class="fas fa-redo"></i>
+                הערכה חדשה
+            </a>
+            <button onclick="window.print()" class="btn btn-secondary me-3">
+                <i class="fas fa-print"></i>
+                הדפס דוח
+            </button>
+            <a href="{% url 'questionnaire:home' %}" class="btn btn-primary">
+                <i class="fas fa-home"></i>
+                חזרה לדף הבית
+            </a>
+        </div>
+
+        <!-- Footer Info -->
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> הערות חשובות</h6>
+            <ul class="mb-0">
+                <li>הדוח מבוסס על הנתונים שסופקו ועדכני לתאריך {{ report.created_at|date:"d/m/Y" }}</li>
+                <li>מומלץ לפנות לרשויות הרלוונטיות לקבלת מידע מדויק ועדכני</li>
+                <li>הדרישות עשויות להשתנות בהתאם לחקיקה ותקנות עדכניות</li>
+                <li>יש להתייעץ עם יועץ מקצועי לפני תחילת הליכי הרישוי</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+.ai-content {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #2c3e50;
+}
+
+.ai-content h1 {
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.ai-content h2 {
+    color: #34495e;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+}
+
+.ai-content h3 {
+    color: #7f8c8d;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+.ai-content ul, .ai-content ol {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.ai-content li {
+    margin-bottom: 5px;
+}
+
+.ai-content strong {
+    color: #2c3e50;
+}
+
+.ai-content em {
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+@media print {
+    .btn, .accordion-button, .alert-info:last-child {
+        display: none !important;
+    }
+    .accordion-collapse {
+        display: block !important;
+    }
+    .ai-content {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}
