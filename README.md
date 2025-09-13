@@ -1,110 +1,110 @@
-# מערכת הערכת רישוי עסקים עם AI
+# AI-Powered Business Licensing Assessment System
 
-## תיאור הפרויקט
+## Project Description
 
-מערכת חכמה לעזרה לבעלי עסקים בישראל להבין את דרישות הרישוי הרלוונטיות לעסק שלהם. 
-המערכת מבוססת על Django ומשתמשת ב-Perplexity API עם מודל Llama 3.1 Sonar ליצירת דוחות מדויקים ומותאמים אישית.
+An intelligent system designed to help business owners in Israel understand the licensing requirements relevant to their specific business. 
+The system is built on Django and utilizes the Perplexity API with the Llama 3.1 Sonar model to generate accurate and personalized reports.
 
-## תכונות עיקריות
+## Key Features
 
-- ✅ **שאלון דיגיטלי אינטראקטיבי** - איסוף נתוני העסק
-- ✅ **מנוע התאמה חכם** - מיפוי בין מאפייני העסק לדרישות רגולטוריות  
-- ✅ **דוחות AI מותאמים אישית** - דוחות מדויקים בעברית מבוססי הנתונים הספציפיים
-- ✅ **בדיקת התאמה חכמה** - זיהוי סתירות בין גודל העסק לדרישות הרגולטוריות
-- ✅ **עיבוד נתונים מקובץ Word** - המרה אוטומטית לפורמט מובנה
-- ✅ **ממשק משתמש מודרני** - עיצוב responsive ונגיש
-- ✅ **אמינות גבוהה** - המערכת מתבססת רק על הנתונים המקוריים ולא על ידע כללי
+- **Interactive Digital Questionnaire** - Business data collection
+- **Smart Matching Engine** - Mapping between business characteristics and regulatory requirements  
+- **AI-Powered Custom Reports** - Accurate Hebrew reports based on specific data
+- **Intelligent Compliance Check** - Identifying discrepancies between business size and regulatory requirements
+- **Word Document Processing** - Automatic conversion to structured format
+- **Modern User Interface** - Responsive and accessible design
+- **High Reliability** - System relies only on original data, not general knowledge
 
-## דרישות מערכת
+## System Requirements
 
 - Python 3.8+
 - Django 4.2+
-- חיבור אינטרנט (עבור Perplexity API)
-- API Key של Perplexity
-- זיכרון: לפחות 2GB RAM
-- מקום פנוי: לפחות 500MB
+- Internet connection (for Perplexity API)
+- Perplexity API Key
+- Memory: At least 2GB RAM
+- Storage: At least 500MB
 
-## התקנה והרצה
+## Installation and Setup
 
-### שלב 1: הכנת הסביבה
+### Step 1: Environment Setup
 ```bash
-# שכפול המאגר
+# Clone the repository
 git clone <repository-url>
 cd a-impact
 
-# יצירת סביבה וירטואלית
+# Create virtual environment
 python -m venv venv
 
-# הפעלת הסביבה הוירטואלית
-# ב-Windows:
+# Activate virtual environment
+# On Windows:
 venv\Scripts\activate
-# ב-Linux/Mac:
+# On Linux/Mac:
 source venv/bin/activate
 ```
 
-### שלב 2: התקנת תלויות
+### Step 2: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### שלב 2.5: הגדרת Perplexity API
-1. **השג API Key**:
-   - גש ל-https://www.perplexity.ai/
-   - צור חשבון ואמת את כתובת האימייל
-   - עבור לתפריט API ויצור API key חדש
-   - המודל בשימוש: `sonar` (Llama 3.1 Sonar)
+### Step 2.5: Configure Perplexity API
+1. **Get API Key**:
+   - Go to https://www.perplexity.ai/
+   - Create an account and verify your email address
+   - Navigate to the API menu and create a new API key
+   - Model in use: `sonar` (Llama 3.1 Sonar)
 
-2. **צור קובץ .env**:
+2. **Create .env file**:
 ```bash
-# ביצירת קובץ .env בתיקיית הפרויקט
+# Create .env file in project directory
 echo "PERPLEXITY_API_KEY=your-api-key-here" > .env
 echo "PERPLEXITY_MODEL=sonar" >> .env
 echo "DEBUG=True" >> .env
 ```
 
-**חשוב**: החלף את `your-api-key-here` ב-API key האמיתי שלך!
+**Important**: Replace `your-api-key-here` with your actual API key!
 
-### שלב 3: הכנת מסד הנתונים
+### Step 3: Database Setup
 ```bash
-# הרצת מיגרציות
+# Run migrations
 python manage.py migrate
 
-# טעינת נתוני מדגם (אופציונלי)
+# Load sample data (optional)
 python load_sample_data.py
 ```
 
-### שלב 4: הרצת השרת
+### Step 4: Run the Server
 ```bash
 python manage.py runserver
 ```
 
-המערכת תהיה זמינה בכתובת: http://127.0.0.1:8000/
+The system will be available at: http://127.0.0.1:8000/
 
-## 🎯 היתרונות החדשים של המערכת
+## New System Advantages
 
-### דיוק מושלם
-- **מבוסס על נתונים אמיתיים**: הדוחות נוצרים רק מהדרישות שבקובץ המקורי
-- **זיהוי סתירות**: המערכת מזהה אם העסק לא עונה על דרישות שטח או תפוסה
-- **פרטים מלאים**: כל דרישה כוללת רשות, עלות, זמן וכל הפרטים הרלוונטיים
+### Perfect Accuracy
+- **Based on Real Data**: Reports are generated only from requirements in the original file
+- **Contradiction Detection**: The system identifies if the business doesn't meet area or capacity requirements
+- **Complete Details**: Each requirement includes authority, cost, time and all relevant details
 
-### שקיפות מלאה
-- **מקורות ברורים**: כל מידע בדוח מצוין עם המקור הספציפי
-- **הסברים מפורטים**: למה דרישה רלוונטית או לא רלוונטית לעסק
-- **ללא ידע כללי**: המערכת לא מוסיפה מידע שאינו מופיע בקובץ המקורי
+### Full Transparency
+- **Clear Sources**: Every piece of information in the report is marked with its specific source
+- **Detailed Explanations**: Why a requirement is relevant or not relevant to the business
+- **No General Knowledge**: The system doesn't add information that doesn't appear in the original file
 
-### דוחות מקצועיים
-- **מבנה עקבי**: תמצית מנהלים, דרישות, עלויות, תוכנית פעולה והמלצות
-- **עלויות וזמנים מדויקים**: בהתבסס על הנתונים הרשמיים בלבד
-- **המלצות מעשיות**: צעדים קונקרטיים לביצוע
+### Professional Reports
+- **Consistent Structure**: Executive summary, requirements, costs, action plan and recommendations
+- **Accurate Costs and Times**: Based only on official data
+- **Practical Recommendations**: Concrete steps for implementation
 
-## שימוש במערכת
+## System Usage
 
-1. **כניסה לשאלון**: גלשו ל-http://127.0.0.1:8000/
-2. **מילוי פרטי העסק**: שם, סוג, שטח, תפוסה ומאפיינים מיוחדים
-3. **קבלת דוח מותאם**: הדוח נוצר אוטומטית על ידי AI
-4. **עיון בדרישות**: פירוט מלא לפי עדיפויות וקטגוריות
+1. **Access Questionnaire**: Navigate to http://127.0.0.1:8000/
+2. **Fill Business Details**: Name, type, area, capacity and special characteristics
+3. **Receive Custom Report**: Report is automatically generated by AI
+4. **Review Requirements**: Complete breakdown by priorities and categories
 
-## ארכיטקטורת המערכת
+## System Architecture
 
 ```
 a-impact/
@@ -137,126 +137,101 @@ a-impact/
     └── js/
 ```
 
-## טכנולוגיות שבשימוש
+## Technologies Used
 
 ### Backend
-- **Django 4.2** - Framework ראשי
-- **Python 3.8+** - שפת התכנות
-- **SQLite** - מסד נתונים (ניתן לשדרג ל-PostgreSQL)
+- **Django 4.2** - Main framework
+- **Python 3.8+** - Programming language
+- **SQLite** - Database (can be upgraded to PostgreSQL)
 
 ### AI & ML
-- **Perplexity API** - מודל שפה מתקדם ליצירת דוחות
-- **Llama 3.1 Sonar** - מודל מתקדם עם גישה לאינטרנט בזמן אמת
+- **Perplexity API** - Advanced language model for report generation
+- **Llama 3.1 Sonar** - Advanced model with real-time internet access
 
 ### Frontend
-- **Bootstrap 5** - עיצוב responsive
-- **JavaScript** - אינטראקטיביות
-- **Font Awesome** - אייקונים
+- **Bootstrap 5** - Responsive design
+- **JavaScript** - Interactivity
+- **Font Awesome** - Icons
 
-### עיבוד נתונים
-- **python-docx** - קריאת קבצי Word
-- **Polars** - עיבוד נתונים מהיר
-- **CSV/JSON** - פורמטי נתונים
+### Data Processing
+- **python-docx** - Reading Word files
+- **Polars** - Fast data processing
+- **CSV/JSON** - Data formats
 
-## אינטגרציה עם AI
+## AI Integration
 
 ### Perplexity API + Llama 3.1 Sonar
-המערכת משתמשת ב-Perplexity API עם מודל Llama 3.1 Sonar - מודל שפה מתקדם עם יכולת גישה לאינטרנט בזמן אמת.
+The system uses Perplexity API with the Llama 3.1 Sonar model - an advanced language model with real-time internet access capabilities.
 
-### יצירת דוחות מדויקים
-1. **ניתוח נתוני עסק** - המערכת מעבדת את נתוני השאלון
-2. **בחירת דרישות רלוונטיות** - אלגוריתם סינון מתקדם מהקובץ המקורי
-3. **העברת נתונים מפורטים** - כל פרט רלוונטי מהדרישות מועבר למודל
-4. **יצירת דוח מבוסס נתונים** - המודל מייצר דוח מבוסס רק על הנתונים שסופקו
-5. **עיצוב וזיהוי סתירות** - הדוח כולל זיהוי התאמות ואי-התאמות
+### Accurate Report Generation
+1. **Business Data Analysis** - The system processes questionnaire data
+2. **Relevant Requirements Selection** - Advanced filtering algorithm from the original file
+3. **Detailed Data Transfer** - Every relevant detail from requirements is passed to the model
+4. **Data-Based Report Creation** - The model generates reports based only on provided data
+5. **Design and Contradiction Detection** - The report includes identification of matches and mismatches
 
-### תהליך מתקדם לדיוק
-- **העברת פרטי דרישות מלאים**: כותרת, תיאור, רשות, דרישות שטח/תפוסה, עדיפות, עלות וזמן
-- **בדיקת התאמה לגודל עסק**: המודל בודק אם העסק עונה על הגבלות שטח ותפוסה
-- **הוראות מפורשות**: המודל מקבל הוראה להתבסס רק על הנתונים שסופקו ולא על ידע כללי
-- **זיהוי סתירות**: המודל מציין אם יש סתירה בין מאפייני העסק לדרישות
+### Advanced Process for Accuracy
+- **Complete Requirement Details Transfer**: Title, description, authority, area/capacity requirements, priority, cost and time
+- **Business Size Compliance Check**: The model checks if the business meets area and capacity restrictions
+- **Explicit Instructions**: The model receives instructions to rely only on provided data and not general knowledge
+- **Contradiction Detection**: The model indicates if there's a contradiction between business characteristics and requirements
 
-### דוגמת מבנה הנתונים שמועברים למודל
+### Sample Data Structure Passed to Model
 ```
-דרישות שנמצאו (6 סה"כ):
-1. חוק רישוי עסקים – תנאי תברואה לבתי אוכל התשמ"ג 1983
-   תיאור: עמידה בתקנות תברואה לבתי אוכל
-   רשות: משרד הבריאות
-   עדיפות: גבוהה
-   עלות: לפי תעריף
-   זמן: 2-4 שבועות
+Requirements Found (6 total):
+1. Business Licensing Law - Health Conditions for Food Establishments 1983
+   Description: Compliance with health regulations for food establishments
+   Authority: Ministry of Health
+   Priority: High
+   Cost: According to tariff
+   Time: 2-4 weeks
 
-2. אישור משרד הבריאות למטבח
-   תיאור: בדיקת תנאי היגיינה במטבח
-   רשות: משרד הבריאות
+2. Ministry of Health Kitchen Approval
+   Description: Kitchen hygiene conditions inspection
+   Authority: Ministry of Health
    ...
 ```
 
-## פתרון בעיות נפוצות
+## Common Troubleshooting
 
-### שגיאות Perplexity API
+### Perplexity API Errors
 ```bash
-# בדיקת חיבור API:
+# Test API connection:
 curl -X POST "https://api.perplexity.ai/chat/completions" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "sonar", "messages": [{"role": "user", "content": "test"}]}'
 ```
 
-### בעיות API Key
-- **שגיאה 401**: בדקו שה-API key נכון בקובץ `.env`
-- **שגיאה 400**: בדקו את פורמט הבקשה וש `PERPLEXITY_MODEL=sonar`
-- **שגיאה 429**: חרגתם ממכסת ה-API - המתינו או שדרגו את התוכנית
+### API Key Issues
+- **Error 401**: Check that the API key is correct in the `.env` file
+- **Error 400**: Check request format and ensure `PERPLEXITY_MODEL=sonar`
+- **Error 429**: Exceeded API quota - wait or upgrade your plan
 
-### בעיות חיבור
-- **שגיאת חיבור**: בדקו חיבור אינטרנט
-- **Timeout**: הגדילו את timeout בקובץ `ai_service.py`
-- **SSL errors**: ייתכן ובעיה ברשת המקומית
+### Connection Issues
+- **Connection Error**: Check internet connection
+- **Timeout**: Increase timeout in `ai_service.py` file
+- **SSL errors**: Possible local network issue
 
-## פיתוח ותרומה
+## Development and Contribution
 
-### הוספת דרישות חדשות
-1. ערכו את קובץ ה-CSV: `data_processing/restaurant_requirements_clean.csv`
-2. הריצו: `python load_sample_data.py`
+### Adding New Requirements
+1. Edit the CSV file: `data_processing/restaurant_requirements_clean.csv`
+2. Run: `python load_sample_data.py`
 
-### שינוי מודל Perplexity
+### Changing Perplexity Model
 ```python
-# בקובץ services/ai_service.py - שנו את המודל
+# In services/ai_service.py file - change the model
 self.model = config('PERPLEXITY_MODEL', default='sonar')
-# אפשרויות: 'sonar', 'llama-3.1-sonar-small-128k-online', וכו'
+# Options: 'sonar', 'llama-3.1-sonar-small-128k-online', etc.
 ```
 
-### הוספת שפות נוספות
-- ערכו את ה-prompts בקובץ `ai_service.py`
-- הוסיפו תמיכה ב-RTL ב-CSS
+### Adding Additional Languages
+- Edit the prompts in `ai_service.py` file
+- Add RTL support in CSS
 
-## בדיקות ואיכות
 
-### הרצת בדיקות
-```bash
-python manage.py test
-```
-
-### בדיקת AI
-```bash
-python manage.py shell
->>> from services.ai_service import generate_ai_report
->>> # בדיקת יצירת דוח עם נתונים מדגם
->>> report = generate_ai_report("מסעדת בדיקה", "מסעדה", 100, 50, [], [])
->>> print(report[:200])  # בדיקת תחילת הדוח
-```
-
-## תיעוד נוסף
-
-- **API Documentation**: `/api/docs/` (אם מותקן)
-- **Admin Panel**: `/admin/` (ליצירת superuser: `python manage.py createsuperuser`)
-- **Logs**: בקובץ `django.log`
-
-## רישיון וזכויות יוצרים
-
-פרויקט זה נוצר למטרות לימוד ופיתוח. 
-השימוש ב-Perplexity API כפוף לתנאי השימוש של Perplexity.
 
 ---
 
-**פותח עם ❤️ באמצעות Cursor AI ו-Claude**
+
